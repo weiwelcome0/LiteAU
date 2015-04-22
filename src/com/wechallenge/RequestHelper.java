@@ -1,10 +1,7 @@
 package com.wechallenge;
 
-import java.util.List;
-
 import com.wechallenge.bean.MapListResult;
 import com.wechallenge.bean.RequestParam;
-import com.wechallenge.impl.CursorStringProcessor;
 import com.wechallenge.itf.IRequest;
 import com.wechallenge.itf.IRequestResultConverter;
 import com.wechallenge.tool.Logger;

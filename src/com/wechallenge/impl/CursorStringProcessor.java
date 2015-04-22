@@ -10,9 +10,23 @@ import com.wechallenge.itf.ICursorProcessor;
  * 2015-4-21
  */
 public class CursorStringProcessor implements ICursorProcessor<String> {
-	
-	public static final CursorStringProcessor CURSOR_STRING_PROCESSOR = new CursorStringProcessor();
-	
+
+	public static final CursorStringProcessor CURSOR_STRING_PROCESSOR = new CursorStringProcessor() {
+		@Override
+		public String convert(Cursor c) {
+
+			StringBuilder builder = new StringBuilder();
+			for (int i = 0, n = c.getColumnCount(); i < n; i++) {
+				builder.append(c.getString(i));
+				if (i < n - 1) {
+					builder.append(",");
+				}
+			}
+
+			return builder.toString();
+		}
+	};
+
 	private String[] fields;
 	private String joinner;
 	private volatile int[] fldIdx = null;
@@ -22,25 +36,30 @@ public class CursorStringProcessor implements ICursorProcessor<String> {
 		this.joinner = ",";
 	}
 
+	public CursorStringProcessor(String joinner) {
+		this.fldIdx = null;
+		this.joinner = joinner==null?"":joinner;
+	}
+	
 	public CursorStringProcessor(String[] fields, String joinner) {
 		this.fields = fields;
-		this.joinner = joinner==null?"":",";
+		this.joinner = joinner==null?"":joinner;
 	}
 
 	public CursorStringProcessor(int[] fieldIndex, String joinner) {
-		fldIdx = fieldIndex;
-		this.joinner = joinner==null?"":",";
+		this.fldIdx = fieldIndex;
+		this.joinner = joinner==null?"":joinner;
 	}
 
 	@Override
 	public String convert(Cursor c) {
-			if(null == fldIdx) {
-				synchronized (this.joinner) {
-					if(null == fldIdx){
-						initFldIdx(c);
-					}
+		if(null == fldIdx) {
+			synchronized (this.joinner) {
+				if(null == fldIdx){
+					initFldIdx(c);
 				}
 			}
+		}
 
 		StringBuilder builder = new StringBuilder();
 		for (int i = 0, n = fldIdx.length; i < n; i++) {

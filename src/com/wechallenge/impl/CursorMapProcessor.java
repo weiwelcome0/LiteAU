@@ -13,17 +13,15 @@ import com.wechallenge.itf.ICursorProcessor;
  * 2015-4-21
  */
 public class CursorMapProcessor implements ICursorProcessor<Map<String, String>> {
-	
+
 	public static final CursorMapProcessor CURSOR_MAP_PROCESSOR = new CursorMapProcessor();
 
 	@Override
 	public Map<String, String> convert(Cursor c) {
 		Map<String, String> map = new CaseInsensitiveMap<String>();
 
-		String[] columns = c.getColumnNames();
-
-		for (String col : columns) {
-			map.put(col, c.getString(c.getColumnIndex(col)));
+		for (int i = 0, n = c.getColumnCount(); i < n; i++) {
+			map.put(c.getColumnName(i), c.getString(i));
 		}
 
 		return map;
