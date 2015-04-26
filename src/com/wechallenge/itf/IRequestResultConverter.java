@@ -1,6 +1,6 @@
 package com.wechallenge.itf;
 
-import com.wechallenge.bean.MapListResult;
+import com.wechallenge.bean.MapRequestResult;
 
 
 /**
@@ -9,6 +9,6 @@ import com.wechallenge.bean.MapListResult;
  * 2015-4-21
  * @param <T>
  */
-public interface IRequestResultConverter extends IConvert<CharSequence,MapListResult> {
+public interface IRequestResultConverter extends IConvert<CharSequence,MapRequestResult> {
 	
 }

@@ -32,23 +32,27 @@ import android.util.Log;
 
 public class Logger{
 	static ExecutorService executor = null;
-	public static String logFilePath= "";//+FilePath.File_LOG;
+	private static String logFilePath= "";
 	
 
-	static String className;
-	static String methodName;
-	static int lineNumber;
-	
     private Logger(){
         /* Protect from instantiations */
     }
+    
+    public static void initialize(String logFile){
+		if(!new File(logFile).exists()){
+			Logger.e("[initialize]--logFile not exists; please confirm the path:"+logFile);
+			return;
+		}
+		logFilePath = logFile;
+	}
 
 	public static boolean isDebuggable() {
 		return false;
 	}
 
-	private static String createLog( String log ) {
-
+	private static String createLog( String log, String className,String methodName,int lineNumber) {
+		
 		StringBuilder buffer = new StringBuilder();
 		buffer.append("[");
 		buffer.append(className);
@@ -58,19 +62,16 @@ public class Logger{
 		buffer.append(lineNumber);
 		buffer.append("]");
 		buffer.append(log);
-
+		
 		return buffer.toString();
 	}
 	
-	private static void getMethodNames(StackTraceElement[] sElements){
-		className = sElements[1].getFileName();
-		methodName = sElements[1].getMethodName();
-		lineNumber = sElements[1].getLineNumber();
-	}
-
 	public static void d(String message){
-		getMethodNames(new Throwable().getStackTrace());
-		String msg = createLog(message);
+		StackTraceElement[] sElements = new Throwable().getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -78,8 +79,11 @@ public class Logger{
 	}
 	
 	public static void i(String message){
-		getMethodNames(new Throwable().getStackTrace());
-		String msg = createLog(message);
+		StackTraceElement[] sElements = new Throwable().getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -87,8 +91,11 @@ public class Logger{
 	}
 	
 	public static void v(String message){
-		getMethodNames(new Throwable().getStackTrace());
-		String msg = createLog(message);
+		StackTraceElement[] sElements = new Throwable().getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -96,8 +103,11 @@ public class Logger{
 	}
 	
 	public static void w(String message){
-		getMethodNames(new Throwable().getStackTrace());
-		String msg = createLog(message);
+		StackTraceElement[] sElements = new Throwable().getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -105,8 +115,11 @@ public class Logger{
 	}
 	
 	public static void w(String message,Throwable e){
-		getMethodNames(e.getStackTrace());
-		String msg = createLog(message+e);
+		StackTraceElement[] sElements = e.getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message+e,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -114,8 +127,11 @@ public class Logger{
 	}
 	
 	public static void e(String message){
-		getMethodNames(new Throwable().getStackTrace());
-		String msg = createLog(message);
+		StackTraceElement[] sElements = new Throwable().getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -123,8 +139,11 @@ public class Logger{
 	}
 	
 	public static void e(String message,Throwable e){
-		getMethodNames(e.getStackTrace());
-		String msg = createLog(message+e);
+		StackTraceElement[] sElements = e.getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message+e,className,methodName,lineNumber);
 		if (!isDebuggable()){
 			log2file( msg);
 		}
@@ -134,12 +153,20 @@ public class Logger{
 	public static void wtf(String message){
 		if (!isDebuggable())
 			return;
-
-		getMethodNames(new Throwable().getStackTrace());
-		Log.wtf(className, createLog(message));
+		StackTraceElement[] sElements = new Throwable().getStackTrace();
+		String className = sElements[1].getFileName();
+		String methodName = sElements[1].getMethodName();
+		int lineNumber = sElements[1].getLineNumber();
+		String msg = createLog(message,className,methodName,lineNumber);
+		Log.wtf(className, msg);
 	}
 	
 	protected static void log2file(final String str) {
+		final File file = GetFileFromPath(logFilePath); 
+		if(null == file){
+			return;
+		}
+		
         if (executor == null) {
             executor = Executors.newSingleThreadExecutor();
         }
@@ -149,8 +176,6 @@ public class Logger{
                 @Override
                 public void run() {
                     PrintWriter out = null;
-
-                    File file = GetFileFromPath(logFilePath);
 
                     try {
                         out = new PrintWriter(new BufferedWriter(new FileWriter(file, true)));

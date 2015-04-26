@@ -1,6 +1,6 @@
 package com.wechallenge;
 
-import com.wechallenge.bean.MapListResult;
+import com.wechallenge.bean.MapRequestResult;
 import com.wechallenge.bean.RequestParam;
 import com.wechallenge.itf.IRequest;
 import com.wechallenge.itf.IRequestResultConverter;
@@ -13,16 +13,16 @@ public class RequestHelper {
 
 	private IRequestResultConverter resultConverter;
 
-	public MapListResult requestServer(RequestParam rp) {
+	public MapRequestResult requestServer(RequestParam rp) {
 		return requestServer(rp, serverUrl);
 	}
 
-	public MapListResult requestServer(RequestParam rp, String url) {
+	public MapRequestResult requestServer(RequestParam rp, String url) {
 		long t1 = System.currentTimeMillis();
 		String str = requester.doRequest(rp, url);
 
 		long t2 = System.currentTimeMillis();
-		MapListResult result = resultConverter.convert(str);
+		MapRequestResult result = resultConverter.convert(str);
 
 		long t3 = System.currentTimeMillis();
 		Logger.i("--requestServer--request timecost:" + (t2 - t1) + ";convert result timecost:" + (t3 - t2));

@@ -1,6 +1,7 @@
 package com.wechallenge;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -11,7 +12,11 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.wechallenge.bean.CaseInsensitiveMap;
+import com.wechallenge.bean.Fields;
+import com.wechallenge.impl.BeanContentValueConverter;
+import com.wechallenge.impl.CursorBeanProcessor;
 import com.wechallenge.impl.CursorMapProcessor;
+import com.wechallenge.impl.CursorStringProcessor;
 import com.wechallenge.itf.IContentValuesConverter;
 import com.wechallenge.itf.ICursorProcessor;
 import com.wechallenge.tool.Logger;
@@ -24,10 +29,12 @@ import com.wechallenge.tool.Logger;
 public class DBHelper {
 	private static String sqliteDbFile = null;
 	private static SQLiteDatabase database = null;
+	private static CaseInsensitiveMap<Fields> classFieldMap = new CaseInsensitiveMap<Fields>();	//cache the fields of java bean
+	private static CaseInsensitiveMap<Boolean> tableCheckedMap = new CaseInsensitiveMap<>();	//check the table columns is the same as the bean
 	
 	public static void initialize(String sqliteDbFilePath){
 		if(!new File(sqliteDbFilePath).exists()){
-			Logger.e("[init]--sqliteDbFile not exists; please confirm the path:"+sqliteDbFilePath);
+			Logger.e("[initialize]--sqliteDbFile not exists; please confirm the path:"+sqliteDbFilePath);
 			return;
 		}
 		sqliteDbFile = sqliteDbFilePath;
@@ -38,6 +45,64 @@ public class DBHelper {
 			database = SQLiteDatabase.openDatabase(sqliteDbFile, null, SQLiteDatabase.OPEN_READWRITE);
 		}
 		return database;
+	}
+	
+	public static <T> List<T> query(Class<T> cls) {
+		String sql = "select * from "+cls.getSimpleName();
+		return query(sql, null, cls);
+	}
+	
+	public static <T> List<T> query(String sql, Class<T> cls) {
+		return query(sql, null, cls);
+	}
+	
+	public static <T> List<T> query(String sql, String[] sqlWhereArgs, Class<T> cls) {
+		return query(sql, sqlWhereArgs, new CursorBeanProcessor<T>(cls, getFields(cls)));
+	}
+	
+	public static int insert(Object obj) {
+		if(null == obj){
+			return 0;
+		}
+		return insert(obj.getClass().getSimpleName(),obj);
+	}
+	
+	public static int insert(String tableName, Object obj) {
+		if(null == obj){
+			return 0;
+		}
+		ArrayList<Object> list = new ArrayList<Object>(1);
+		list.add(obj);
+		return insert(tableName, list);
+	}
+	
+	public static <T> int insert(List<T> list) {
+		if(null == list || list.size() <= 0){
+			return 0;
+		}
+		Class<?> cls = list.get(0).getClass();
+		return insert(cls.getSimpleName(),list);
+	}
+	
+	public static <T> int insert(String tableName, List<T> list) {
+		if(null == list || list.size() <= 0){
+			return 0;
+		}
+		Class<?> cls = list.get(0).getClass();
+		checkTable(tableName,getFields(cls));
+		IContentValuesConverter<T> converter = new BeanContentValueConverter<T>(getFields(cls));
+		
+		return insert(tableName, list, converter);
+	}
+	
+	public static <T> int update(String table, List<T> list) {
+		//TODO
+		return 0;
+	}
+	
+	public static <T> int delete(String table, List<T> list) {
+		//TODO
+		return 0;
 	}
 	
 	public static List<Map<String, String>> query(String sql) {
@@ -77,7 +142,7 @@ public class DBHelper {
 
 		long end = System.currentTimeMillis();
 
-		Logger.d("[query]--params：sql:" + sql + ",sqlWhereArgs:" + Arrays.toString(sqlWhereArgs) + ";timecost：" + (end - begin) + "ms;");
+		Logger.d("[query]--params：sql:" + sql + ",sqlWhereArgs:" + Arrays.toString(sqlWhereArgs) + ",count:"+list.size()+ ";timecost：" + (end - begin) + "ms;");
 
 		return list;
 	}
@@ -131,7 +196,7 @@ public class DBHelper {
 
 		long end = System.currentTimeMillis();
 
-		Logger.d("[query]--params：table:" + tableName + ",cols:" + Arrays.toString(columns) + ",sqlWhere:" + sqlWhere + ";timecost：" + (end - begin) + "ms;");
+		Logger.d("[query]--params：table:" + tableName + ",cols:" + Arrays.toString(columns) + ",sqlWhere:" + sqlWhere + ",count:"+list.size()+ ";timecost：" + (end - begin) + "ms;");
 
 		return list;
 	}
@@ -149,7 +214,7 @@ public class DBHelper {
 		try {
 			database.beginTransaction();
 			if(values != null) {
-					rowNum = database.insert(table, nullColumnHack, values);
+				rowNum = database.insert(table, nullColumnHack, values);
 			}
 			database.setTransactionSuccessful();
 		} catch (Exception e) {
@@ -224,8 +289,30 @@ public class DBHelper {
 		
 		return rowCount;
 	}
+
+	public static int update(String sql, String[] sqlWhereArgs) {
+		SQLiteDatabase database = getWritableDatabase();
+		int rowCount = 0;
+		long begin = System.currentTimeMillis();
+		
+		try {
+			database.beginTransaction();
+			database.execSQL(sql, sqlWhereArgs);
+			database.setTransactionSuccessful();
+		} catch (Exception e) {
+			Logger.e("[update]--failed",e);
+			rowCount = -1;
+		} finally {
+			database.endTransaction();
+		}
+		
+		long end = System.currentTimeMillis();
+		Logger.d("[delete]--params：sql:" + sql + ",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
+		
+		return rowCount;
+	}
 	
-	public static int update(String sql, List<String[]> listArgs) {
+	public static int updateBatch(String sql, List<String[]> listArgs) {
 		if(null == listArgs || listArgs.size() <=0){
 			return 0;
 		}
@@ -247,28 +334,6 @@ public class DBHelper {
 		}
 		long end = System.currentTimeMillis();
 		Logger.d("[update]--params：sql:" + sql + "listArgs.size():"+listArgs.size()+",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
-		
-		return rowCount;
-	}
-
-	public static int update(String sql, String[] sqlWhereArgs) {
-		SQLiteDatabase database = getWritableDatabase();
-		int rowCount = 0;
-		long begin = System.currentTimeMillis();
-		
-		try {
-			database.beginTransaction();
-			database.execSQL(sql, sqlWhereArgs);
-			database.setTransactionSuccessful();
-		} catch (Exception e) {
-			Logger.e("[update]--failed",e);
-			rowCount = -1;
-		} finally {
-			database.endTransaction();
-		}
-		
-		long end = System.currentTimeMillis();
-		Logger.d("[delete]--params：sql:" + sql + ",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
 		
 		return rowCount;
 	}
@@ -298,7 +363,77 @@ public class DBHelper {
 		
 		return rowCount;
 	}
+	
+	
+	private static void checkTable(Class<?> cls){
+		checkTable(cls.getSimpleName(),getFields(cls));
+	}
+	
+	private static void checkTable(String tableName,Fields fields){
+		Boolean b = tableCheckedMap.get(tableName);
+		if(b != null){
+			return ;
+		}
 
+		synchronized (tableCheckedMap) {
+			String sql = "PRAGMA table_info(["+tableName+"])";
+			List<String> columnList = query(sql,new String[0],new CursorStringProcessor(new int[]{1},null));
+			if(columnList.size() <= 0){
+				createTable(tableName, fields);
+			}else{
+				alterTable(tableName,fields,columnList);
+			}
+			tableCheckedMap.put(tableName, Boolean.TRUE);
+		}
+	}
+	
+	private static boolean createTable(String tableName, Fields fields) {
+		StringBuilder buf = new StringBuilder();
+		buf.append("CREATE TABLE ").append(tableName).append("( ");
+		for(Field f:fields.getAllFields()){
+			buf.append("\t").append(f.getName()).append(" ").append("Varchar,");
+		}
+		buf.setLength(buf.length()-1);
+		buf.append(");");
+		int isOk = update(buf.toString(), new String[0]);
+		return isOk >= 0;
+	}
+	
+	private static boolean alterTable(String tableName, Fields fields,
+			List<String> columnList) {
+		StringBuilder buf = new StringBuilder();
+		boolean notExists = true; 
+		for(Field f:fields.getAllFields()){
+			notExists = true;
+			buf.setLength(0);
+			for(String col:columnList){
+				if(f.getName().equalsIgnoreCase(col)){
+					notExists = false;
+					break;
+				}
+			}
+			
+			if(notExists){
+				buf.append("ALTER TABLE ").append(tableName).append(" ADD ").append(f.getName()).append(" Varchar;\r\r");
+				update(buf.toString(), new String[0]);
+			}
+			
+		}
+		return true;
+	}
+
+	public static Fields getFields(Class<?> cls){
+		Fields fields = classFieldMap.get(cls.getName());
+		if(null == fields){
+			synchronized (classFieldMap) {
+				fields = new Fields(cls);
+				classFieldMap.put(cls.getName(), fields);
+			}
+		}
+		return fields;
+	}
+	
+	
 	public static void clear(List<Map<String, String>> list) {
 		if(null == list) {
 			return;

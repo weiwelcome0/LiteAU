@@ -1,6 +1,6 @@
 package com.wechallenge.impl;
 
-import com.wechallenge.bean.MapListResult;
+import com.wechallenge.bean.MapRequestResult;
 import com.wechallenge.itf.IRequestResultConverter;
 
 /** convert the xml String to the MapListResult; 
@@ -18,7 +18,7 @@ public class ResultXmlConverter implements IRequestResultConverter {
 	 * @see com.wechallenge.itf.IConvert#convert(java.lang.Object)
 	 */
 	@Override
-	public MapListResult convert(CharSequence f) {
+	public MapRequestResult convert(CharSequence f) {
 		// TODO Auto-generated method stub
 		return null;
 	}

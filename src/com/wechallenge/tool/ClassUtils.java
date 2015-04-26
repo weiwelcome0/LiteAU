@@ -929,6 +929,25 @@ public class ClassUtils {
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Object convertCompatibleType(Object value, Class<?> type) {
+    	if(value == null ){
+    		if(type == boolean.class){
+    			return false;
+    		}else if(type == char.class){
+    			return '\0';
+    		}else if(type == byte.class){
+    			return (byte)0;
+    		}else if(type == short.class){
+    			return (short)0;
+    		}else if(type == int.class){
+    			return 0;
+    		}else if(type == long.class){
+    			return 0L;
+    		}else if(type == float.class){
+    			return 0F;
+    		}else if(type == double.class){
+    			return 0D;
+    		}
+    	}
         if(value == null || type == null || type.isAssignableFrom(value.getClass())) {
         	return value;
         }
@@ -1033,6 +1052,76 @@ public class ClassUtils {
         }
         return value;
     }
+    
+    public static List<Field> getPublicFields(Class<?> clazz) {
+    	List<Field> publicList = new ArrayList<Field>();
+    	List<Field> accessibleList = getAccessibleFields(clazz, Object.class);
+    	for(Field f:accessibleList){
+    		if(Modifier.isPublic(f.getModifiers()) == true){
+    			publicList.add(f);
+    		}
+    	}
+    	accessibleList.clear();
+    	return publicList;
+    }
+    
+    public static List<Field> getAccessibleFields(Class<?> clazz) {
+		return getAccessibleFields(clazz, Object.class);
+	}
+
+	public static List<Field> getAccessibleFields(Class<?> clazz, Class<?> limit) {
+		Package topPackage = clazz.getPackage();
+		List<Field> fieldList = new ArrayList<Field>();
+		int topPackageHash = topPackage == null ? 0 : topPackage.hashCode();
+		boolean top = true;
+		do {
+			if (clazz == null) {
+				break;
+			}
+			Field[] declaredFields = clazz.getDeclaredFields();
+			for (Field field : declaredFields) {
+				if (top == true) {				// add all top declared fields
+					fieldList.add(field);
+					continue;
+				}
+				int modifier = field.getModifiers();
+				if (Modifier.isPrivate(modifier) == true) {
+					continue;										// ignore super private fields
+				}
+				if (Modifier.isPublic(modifier) == true) {
+					addFieldIfNotExist(fieldList, field);			// add super public methods
+					continue;
+				}
+				if (Modifier.isProtected(modifier) == true) {
+					addFieldIfNotExist(fieldList, field);			// add super protected methods
+					continue;
+				}
+				// add super default methods from the same package
+				Package pckg = field.getDeclaringClass().getPackage();
+				int pckgHash = pckg == null ? 0 : pckg.hashCode();
+				if (pckgHash == topPackageHash) {
+					addFieldIfNotExist(fieldList, field);
+				}
+			}
+			top = false;
+		} while ((clazz = clazz.getSuperclass()) != limit);
+
+		return fieldList;
+	}
+	
+	private static void addFieldIfNotExist(List<Field> allFields, Field newField) {
+		for (Field f : allFields) {
+			if (compareSignatures(f, newField) == true) {
+				return;
+			}
+		}
+		allFields.add(newField);
+	}
+	
+	private static boolean compareSignatures(Field first, Field second) {
+		return first.getName().equals(second.getName());
+	}
+
 
 	private ClassUtils() {}
 
