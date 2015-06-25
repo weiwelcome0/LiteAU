@@ -30,7 +30,7 @@ public class DBHelper {
 	private static String sqliteDbFile = null;
 	private static SQLiteDatabase database = null;
 	private static CaseInsensitiveMap<Fields> classFieldMap = new CaseInsensitiveMap<Fields>();	//cache the fields of java bean
-	private static CaseInsensitiveMap<Boolean> tableCheckedMap = new CaseInsensitiveMap<>();	//check the table columns is the same as the bean
+	private static CaseInsensitiveMap<Boolean> tableCheckedMap = new CaseInsensitiveMap<Boolean>();	//check the table columns is the same as the bean
 	
 	public static void initialize(String sqliteDbFilePath){
 		if(!new File(sqliteDbFilePath).exists()){
@@ -38,6 +38,12 @@ public class DBHelper {
 			return;
 		}
 		sqliteDbFile = sqliteDbFilePath;
+	}
+	
+	public static void close(){
+		if(null != database){
+			database.close();
+		}
 	}
 	
 	private static synchronized SQLiteDatabase getWritableDatabase() {
@@ -95,14 +101,106 @@ public class DBHelper {
 		return insert(tableName, list, converter);
 	}
 	
-	public static <T> int update(String table, List<T> list) {
-		//TODO
-		return 0;
+	@SuppressWarnings("unchecked")
+	public static <T> int update(String tableName, String[] keyColumns, List<T> list, String[] keyFields, String[] valueFields) {
+		if(null == keyColumns || keyColumns.length <= 0
+				|| null == list || list.size() <= 0
+				|| null == keyFields || keyFields.length <= 0){
+			return 0;
+		}
+		int rowCount = 0;
+		long begin = System.currentTimeMillis();
+		String whereClause = "1=1";
+		for(String col : keyColumns){
+			whereClause = whereClause+ " AND "+col+ "=?";
+		}
+		Fields fields = getFields(list.get(0).getClass());
+		
+		SQLiteDatabase database = getWritableDatabase();
+		
+		try {
+			Fields updateFields = new Fields(valueFields.length);
+			for(String name:valueFields){
+				updateFields.addField(name, fields.getField(name));
+			}
+			
+			IContentValuesConverter<T> converter = new BeanContentValueConverter<T>(updateFields);
+			
+			database.beginTransaction();
+			
+			for(Object obj: list){
+				int i = 0;
+				String[] whereArgs = new String[keyFields.length];
+				for(String name:keyFields){
+					whereArgs[i ++] = ""+fields.getField(name).get(obj);
+				}
+				rowCount += database.update(tableName, converter.convert((T) obj), whereClause, whereArgs);
+			}
+			database.setTransactionSuccessful();
+		} catch (Exception e) {
+			Logger.e("[update]--failed",e);
+			rowCount = -1;
+		} finally {
+			database.endTransaction();
+		}
+		
+		long end = System.currentTimeMillis();
+		Logger.d("[update]--params：whereClause:" + whereClause + ",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
+		
+		return rowCount;
 	}
 	
-	public static <T> int delete(String table, List<T> list) {
-		//TODO
-		return 0;
+	public static <T> int delete(String table, List<T> list, String[] keyFields) {
+		return delete(table,keyFields,list,keyFields);
+	}
+	
+	public static <T> int delete(String tableName, String[] keyColumns, List<T> list, String[] keyFields) {
+		if(null == keyColumns || keyColumns.length <= 0
+				|| null == list || list.size() <= 0
+				|| null == keyFields || keyFields.length <= 0){
+			return 0;
+		}
+		int rowCount = 0;
+		long begin = System.currentTimeMillis();
+		StringBuilder buf = new StringBuilder();
+		buf.append("DELETE FROM").append(tableName).append(" WHERE 1=1");
+		for(String col : keyColumns){
+			buf.append(" AND ").append(col).append("=?");
+		}
+		String sql = buf.toString();
+		int fieldSize = keyFields.length;
+		Fields fields = getFields(list.get(0).getClass());
+		List<String[]> listValues = new ArrayList<String[]>(list.size());
+		
+		SQLiteDatabase database = getWritableDatabase();
+		
+		try {
+			for(Object obj: list){
+				int i = 0;
+				String[] values = new String[fieldSize];
+				for(String name:keyFields){
+					values[i ++] = ""+fields.getField(name).get(obj);
+				}
+				listValues.add(values);
+			}
+			
+			database.beginTransaction();
+			for(String[] sqlWhereArgs:listValues){
+				database.execSQL(sql, sqlWhereArgs);
+				rowCount ++;
+			}
+			database.setTransactionSuccessful();
+		} catch (Exception e) {
+			Logger.e("[delete]--failed",e);
+			rowCount = -1;
+		} finally {
+			database.endTransaction();
+		}
+		
+		long end = System.currentTimeMillis();
+		Logger.d("[delete]--params：sql:" + sql + ",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
+		
+		return rowCount;
 	}
 	
 	public static List<Map<String, String>> query(String sql) {
@@ -307,7 +405,7 @@ public class DBHelper {
 		}
 		
 		long end = System.currentTimeMillis();
-		Logger.d("[delete]--params：sql:" + sql + ",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
+		Logger.d("[update]--params：sql:" + sql + ",rowCount:" + rowCount + ";timecost：" + (end - begin) + "ms;");
 		
 		return rowCount;
 	}
@@ -364,15 +462,10 @@ public class DBHelper {
 		return rowCount;
 	}
 	
-	
-	private static void checkTable(Class<?> cls){
-		checkTable(cls.getSimpleName(),getFields(cls));
-	}
-	
-	private static void checkTable(String tableName,Fields fields){
+	private static int checkTable(String tableName,Fields fields){
 		Boolean b = tableCheckedMap.get(tableName);
 		if(b != null){
-			return ;
+			return 0;
 		}
 
 		synchronized (tableCheckedMap) {
@@ -385,9 +478,10 @@ public class DBHelper {
 			}
 			tableCheckedMap.put(tableName, Boolean.TRUE);
 		}
+		return 1;
 	}
 	
-	private static boolean createTable(String tableName, Fields fields) {
+	private static int createTable(String tableName, Fields fields) {
 		StringBuilder buf = new StringBuilder();
 		buf.append("CREATE TABLE ").append(tableName).append("( ");
 		for(Field f:fields.getAllFields()){
@@ -395,11 +489,10 @@ public class DBHelper {
 		}
 		buf.setLength(buf.length()-1);
 		buf.append(");");
-		int isOk = update(buf.toString(), new String[0]);
-		return isOk >= 0;
+		return update(buf.toString(), new String[0]);
 	}
 	
-	private static boolean alterTable(String tableName, Fields fields,
+	private static int alterTable(String tableName, Fields fields,
 			List<String> columnList) {
 		StringBuilder buf = new StringBuilder();
 		boolean notExists = true; 
@@ -414,12 +507,12 @@ public class DBHelper {
 			}
 			
 			if(notExists){
-				buf.append("ALTER TABLE ").append(tableName).append(" ADD ").append(f.getName()).append(" Varchar;\r\r");
+				buf.append("ALTER TABLE ").append(tableName).append(" ADD ").append(f.getName()).append(" Varchar;\r\n");
 				update(buf.toString(), new String[0]);
 			}
 			
 		}
-		return true;
+		return 1;
 	}
 
 	public static Fields getFields(Class<?> cls){
