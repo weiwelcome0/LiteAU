@@ -101,6 +101,16 @@ public class DBHelper {
 		return insert(tableName, list, converter);
 	}
 	
+	public static <T> int update(List<T> list, String[] keyFields, String[] valueFields) {
+		if(null == list || list.size() <= 0
+				|| null == keyFields || keyFields.length <= 0
+				|| null == valueFields || valueFields.length <= 0){
+			return 0;
+		}
+		String tableName = list.get(0).getClass().getSimpleName();
+		return update(tableName,keyFields,list,keyFields,valueFields);
+	}
+	
 	@SuppressWarnings("unchecked")
 	public static <T> int update(String tableName, String[] keyColumns, List<T> list, String[] keyFields, String[] valueFields) {
 		if(null == keyColumns || keyColumns.length <= 0
@@ -150,8 +160,13 @@ public class DBHelper {
 		return rowCount;
 	}
 	
-	public static <T> int delete(String table, List<T> list, String[] keyFields) {
-		return delete(table,keyFields,list,keyFields);
+	public static <T> int delete(List<T> list, String[] keyFields) {
+		if(null == list || list.size() <= 0
+				|| null == keyFields || keyFields.length <= 0){
+			return 0;
+		}
+		String tableName = list.get(0).getClass().getSimpleName();
+		return delete(tableName,keyFields,list,keyFields);
 	}
 	
 	public static <T> int delete(String tableName, String[] keyColumns, List<T> list, String[] keyFields) {
@@ -163,7 +178,7 @@ public class DBHelper {
 		int rowCount = 0;
 		long begin = System.currentTimeMillis();
 		StringBuilder buf = new StringBuilder();
-		buf.append("DELETE FROM").append(tableName).append(" WHERE 1=1");
+		buf.append("DELETE FROM ").append(tableName).append(" WHERE 1=1");
 		for(String col : keyColumns){
 			buf.append(" AND ").append(col).append("=?");
 		}
