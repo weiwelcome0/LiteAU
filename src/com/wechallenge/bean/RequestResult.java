@@ -16,8 +16,12 @@ import com.wechallenge.tool.Logger;
  */
 public class RequestResult<T> {
 	public static int OK = 0;
-	public static int NETERROR = 1;
-	public static int DATAERROR = 2;
+	public static int ERROR_NET = 1;
+	public static int ERROR_DATA = 2;
+	
+	public static String RET_CODE = "retCode";
+	public static String RET_MSG = "retMsg";
+	public static String RET_LIST = "retList";
 	/**
 	 * the return code
 	 */

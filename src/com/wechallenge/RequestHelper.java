@@ -6,12 +6,23 @@ import com.wechallenge.itf.IRequest;
 import com.wechallenge.itf.IRequestResultConverter;
 import com.wechallenge.tool.Logger;
 
+/**
+ * do the request;
+ * @author weisir
+ * 2015-4-21
+ */
 public class RequestHelper {
-	public String serverUrl;
+	private String serverUrl;
 
 	private IRequest<String> requester;
 
 	private IRequestResultConverter resultConverter;
+	
+	public RequestHelper(String serverUrl, IRequest<String> requester, IRequestResultConverter resultConverter){
+		this.serverUrl = serverUrl;
+		this.requester = requester;
+		this.resultConverter = resultConverter;
+	}
 
 	public MapRequestResult requestServer(RequestParam rp) {
 		return requestServer(rp, serverUrl);

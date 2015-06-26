@@ -14,31 +14,36 @@ import com.wechallenge.itf.IContentValuesConverter;
 public class MapContentValueConverter implements
 		IContentValuesConverter<Map<String, String>> {
 
-	private String[] cols = null;
+	private String[] fields = null;
 
 	public MapContentValueConverter() {
 
 	}
 
-	public MapContentValueConverter(String[] columns) {
-		this.cols = columns;
+	public MapContentValueConverter(String[] fields) {
+		this.fields = fields;
 	}
 
 	@Override
 	public ContentValues convert(Map<String, String> f) {
-
+		return convert(f,this.fields);
+	}
+	
+	public static ContentValues convert(Map<String, String> f, String[] fields) {
+		
 		ContentValues values = new ContentValues();
-		if (null != cols) {
-			for (String col : cols) {
-				values.put(col, f.get(col));
+		if (null != fields) {
+			for (String fld : fields) {
+				values.put(fld, f.get(fld));
 			}
 		} else {
 			for (Entry<String, String> e : f.entrySet()) {
 				values.put(e.getKey(), e.getValue());
 			}
 		}
-
+		
 		return values;
 	}
+	
 
 }

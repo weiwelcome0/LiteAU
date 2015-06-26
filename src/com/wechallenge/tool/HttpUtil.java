@@ -20,13 +20,11 @@ public class HttpUtil {
 
 	public static final String ENCODING = "utf-8";
 
-	public static final HttpUtil instance = new HttpUtil();
-	
-	public byte[] doPost(String params, InputStream inStream, String serverURL) {
-		return doPost(params, inStream, serverURL, READ_TIMEOUT);
+	public static byte[] doPost(String serverURL, String params, InputStream inStream) {
+		return doPost(serverURL, params, inStream, READ_TIMEOUT);
 	}
 
-	public byte[] doPost(String params, InputStream inStream, String serverURL, int connectionTimeOut) {
+	public static byte[] doPost(String serverURL, String params, InputStream inStream, int connectionTimeOut) {
 		URL objURL = null;
 		byte[] dataReturn = null;
 		HttpURLConnection objConn = null;
@@ -85,14 +83,11 @@ public class HttpUtil {
 
 			dataReturn = bout.toByteArray();
 
-			return dataReturn;
-
 		} catch (Exception ex) {
 			// 记录错误信息
 			Logger.e("[doPost]--http请求异常;", ex);
 
 		} finally {
-			Logger.d("[doPost]--http请求成功;URL,获得数据长度:" + objURL.toString() + (null == dataReturn ? "null" : "" + dataReturn.length));
 			// 最后关闭连接和数据流
 			if (objConn != null) {
 				objConn.disconnect();
@@ -113,8 +108,55 @@ public class HttpUtil {
 			}
 		}
 
-		// 如果中间出现错误,则返回null
-		return null;
+		Logger.d("[doPost]--http请求成功;URL:"+objURL+",获得数据长度:" + (null == dataReturn ? "null" : "" + dataReturn.length));
+		return dataReturn;
+	}
+	
+	public static byte[] doGet(String url) {
+		URL objURL = null;
+		byte[] dataReturn = null;
+		HttpURLConnection objConn = null;
+		BufferedInputStream inputStream = null;
+		try {
+	    	objURL = new URL(url);
+	    	// 打开连接
+	    	objConn = (HttpURLConnection) objURL.openConnection();
+	        objConn.setRequestMethod("GET");
+	        objConn.setRequestProperty("Content-Type", "text/xml;charset=utf-8");
+
+			// 设置连接和读取超时时间
+	        objConn.setConnectTimeout(READ_TIMEOUT);
+	        objConn.setReadTimeout(READ_TIMEOUT);
+	        
+	        // 读取返回字节数组
+	        inputStream = new BufferedInputStream(objConn.getInputStream());
+	        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+	        byte[] bufferByte = new byte[BUFFER_SIZE];
+    		for (int l = -1; (l = inputStream.read(bufferByte)) > -1;) {
+    			bout.write(bufferByte, 0, l);
+    			bout.flush();
+    		}
+    		
+    		dataReturn = bout.toByteArray();
+		} catch (Exception ex) {
+			// 记录错误信息
+			Logger.e("[doGet]--http请求异常;", ex);
+		} finally {
+			// 最后关闭连接和数据流
+			if (objConn != null) {
+				objConn.disconnect();
+			}
+			try {
+				if (inputStream != null) {
+					inputStream.close();
+				}
+			} catch (IOException e) {
+				Logger.e("[doGet]--输入流关闭异常;", e);
+			}
+		}
+		
+		Logger.d("[doGet]--http请求成功;URL:"+objURL+",获得数据长度:" + (null == dataReturn ? "null" : "" + dataReturn.length));
+		return dataReturn;
 	}
 
 }

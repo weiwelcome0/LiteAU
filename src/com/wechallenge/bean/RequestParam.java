@@ -9,7 +9,8 @@ import java.util.Map;
  * 2015-4-21
  */
 public class RequestParam {
-	public static final String PARAM_UPLOAD_FILE = "uploadFilePath";
+	public static final String FUNC_UPLOAD="uploadfile";
+	public static final String PARAM_FILE = "uploadFilePath";
 
 	public Map<String, String> paramMap = new HashMap<String, String>();
 	public String functionName;
